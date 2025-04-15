@@ -1,0 +1,46 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+
+# Environments
+.env
+.env.*
+venv/
+venv.bak/
+env/
+env.bak/
+
+# IDEs
+.vscode/
+.idea/
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Pytest cache
+.pytest_cache/
+
+# Coverage
+htmlcov/
+.coverage
+
+# Render or deployment related
+*.sqlite3
+instance/
+
+# Firebase Admin SDK key
+sign-in-5fb04-firebase-adminsdk-*.json
+*.json
+
+app.py
+test.py
+test1.py
