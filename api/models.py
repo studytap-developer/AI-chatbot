@@ -20,6 +20,8 @@ class ChatHistory(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey('users.id'))
     user_message = Column(Text)
+    question = Column(String)
+    answer = Column(String)
     bot_response = Column(Text)
     timestamp = Column(Integer)
 

@@ -13,8 +13,13 @@ from api.database import SessionLocal, engine
 from api.auth_utils import get_current_user_id
 from sqlalchemy.orm import Session
 from fastapi.middleware.cors import CORSMiddleware
-
+import api.firebase_config
 from api.models import Base, User, ChatHistory
+
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi import Depends, HTTPException
+from firebase_admin import auth
+security = HTTPBearer()
 Base.metadata.create_all(bind=engine)
 # Allow requests from your React frontend
 origins = [
@@ -48,7 +53,17 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
+def get_current_user_id(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    try:
+        decoded_token = auth.verify_id_token(credentials.credentials)
+        return {
+            "uid": decoded_token["uid"],
+            "name": decoded_token.get("name", ""),
+            "email": decoded_token.get("email", "")  # ✅ Extract email
+        }
+    except Exception as e:
+        print("Firebase token verification failed:", e)
+        raise HTTPException(status_code=401, detail="Invalid Firebase token")
 def extract_text_from_pdf(pdf_path):
     """Extract text from a PDF file."""
     text = ""
@@ -124,9 +139,26 @@ def get_text_conversation_chain():
 #         return {"answer": response["output_text"]}
     
 #     return {"error": "FAISS index not found. Please upload and process PDFs first!"}
+
+
 @app.post("/ask/")
-async def ask_question(query: QueryModel, db: Session = Depends(get_db), user_id: str = Depends(get_current_user_id)):
+async def ask_question(query: QueryModel, db: Session = Depends(get_db), user_data: dict = Depends(get_current_user_id)):
     """API endpoint to answer user questions based on shared admin-uploaded FAISS index."""
+    user_id = user_data["uid"]
+    user_email = user_data["email"]
+    user_name = user_data["name"]
+
+    user = db.query(User).filter((User.id == user_id) | (User.email == user_email)).first()
+
+    if not user:
+        new_user = User(
+            id=user_id,
+            name=user_name,
+            email=user_email
+        )
+        db.add(new_user)
+        db.commit()
+
     embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
 
     # Shared FAISS index path
@@ -139,7 +171,7 @@ async def ask_question(query: QueryModel, db: Session = Depends(get_db), user_id
         response = chain({"input_documents": docs, "question": query.question}, return_only_outputs=True)
 
         # Optional: Store user Q&A in MySQL
-        chat = ChatHistory(user_id=user_id, question=query.question, answer=response["output_text"])
+        chat = ChatHistory(user_id=user.id, question=query.question, answer=response["output_text"])
         db.add(chat)
         db.commit()
 
